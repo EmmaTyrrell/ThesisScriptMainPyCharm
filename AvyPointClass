@@ -1,0 +1,65 @@
+# create feature point class for avalanche data that's consistent with HRRR model data
+try:
+    # run tool for XY class
+    arcpy.XYTableToPoint_management(AvyDataTable, outAvyPointClass, xField, yField, "", GCSsr)
+    print("point class created")
+
+    # project class into proper coordinate system
+    arcpy.Project_management(outAvyPointClass, projectedAvyOutPointClass, PCSsr)
+    print("coordinate system projected")
+
+    # add field for StdDate
+    arcpy.AddField_management(projectedAvyOutPointClass, "StdDate", "TEXT", "", "", "", "", "NULLABLE", "REQUIRED")
+    print("field added")
+
+    # create fields for year, month, date
+    # year
+    try:
+        arcpy.AddField_management(projectedAvyOutPointClass, "_Year", "SHORT", "", "", 4, "_Year", "NON_NULLABLE",
+                                  "REQUIRED")
+        print("year calculate created")
+
+        arcpy.CalculateField_management(projectedAvyOutPointClass, "_Year", "!Year!", "PYTHON3")
+        print("year field calculated")
+    except Exception as ex:
+        print(ex)
+
+    # month
+    try:
+        arcpy.AddField_management(projectedAvyOutPointClass, "_Month", "SHORT", "", "", 2, "_Month", "NON_NULLABLE",
+                                  "REQUIRED")
+        print("month calculate created")
+
+        arcpy.CalculateField_management(projectedAvyOutPointClass, "_Month", "!Month!", "PYTHON3")
+        print("month field calculated")
+    except Exception as ex:
+        print(ex)
+
+    # day
+    try:
+        arcpy.AddField_management(projectedAvyOutPointClass, "_Day", "SHORT", "", "", 2, "_Day", "NON_NULLABLE",
+                                  "REQUIRED")
+        print("day calculate created")
+
+        arcpy.CalculateField_management(projectedAvyOutPointClass, "_Day", "!Day!", "PYTHON3")
+        print("day field calculated")
+    except Exception as ex:
+        print(ex)
+
+    # calculate and clip final point class
+    try:
+        StdDateExpression = '"!_Year!" + "-" + "0" + "!_Month!" + "-" + "0" + "!_Day!"'
+        arcpy.CalculateField_management(projectedAvyOutPointClass, "StdDate", StdDateExpression, "PYTHON3", "", "DATE")
+        print("field calculated")
+
+        # clip avy features
+        arcpy.Clip_analysis(projectedAvyOutPointClass, projectBoundary, masterAvyPointClass)
+        print("clipped avy feature")
+
+        # delete working files
+        arcpy.Delete_management([outAvyPointClass, projectedAvyOutPointClass])
+        print("memory classes deleted")
+    except Exception as ex:
+        print(ex)
+except Exception as ex:
+    print(ex)
