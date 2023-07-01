@@ -1,0 +1,54 @@
+# import modules --> make sure to set system parameters to arcpy environment
+
+# import directories
+import arcpy
+from arcpy.sa import *
+from arcpy.ia import *
+import os
+print ("imported modules")
+
+# establish parameters
+# set master workspace and overwrite conditions
+arcpy.env.workspace = "C:\\Users\\Emma Tyrrell\\Documents\\PSU_SDS\\THESIS_230226"
+projectBoundary = (arcpy.env.workspace + "\\Data\\StaticDataGDB.gdb\\ProjectBoundary")
+gdbName = (arcpy.env.workspace + "\\Data\\StaticDataGDB.gdb")
+mosaicBit = 1
+mosaicPixelType = "32_BIT_FLOAT"
+GCSsr = arcpy.SpatialReference(4326)
+PCSsr = arcpy.SpatialReference(6432)
+arcpy.env.overwriteOutput = True
+arcpy.env.qualifiedFieldNames = False
+print ("master parameters established")
+
+# set terrain data workspace
+terrainDataFilesWorkspace = (arcpy.env.workspace + "\\Data\\TerrainData")
+demFiles = (arcpy.env.workspace + "\\Data\\DEM")
+demMosaic = "demMosaic"
+print ("terrain parameters established")
+
+# hrrr model parameters
+hrrrDataWorkspace = (arcpy.env.workspace + "\\Data\\HRRR")
+hrrrMosaicDataset = "Jan2022HRRR"
+Jan2022HRRRWorkspace = (hrrrDataWorkspace + "\\012022")
+outVariablesJan2022HRRR = (Jan2022HRRRWorkspace + "\\OutVariables")
+hrrr01012022MDfile = (Jan2022HRRRWorkspace + "\\hrrr.t00z.wrfsfcf24.grib2")
+hrrrModelVariables = ["ASNOW@SFC", "CSNOW@SFC", "GUST@SFC", "PRATE@SFC", "SFCR@SFC", "SNOD@SFC", "SNOWC@SFC",
+                      "TCDC@BCY", "TCDC@EATM", "TMP@SFC", "VEG@SFC", "WIND@HTGL"]
+print("hrrr model parameters established")
+
+# set avy data workspace
+# set avy data workspace
+AvyDataWorkspace = (arcpy.env.workspace + "\\Data\\AvyData")
+AvyTable = (AvyDataWorkspace + "\\2022\\CAICAvyExplorer_Jan22.csv")
+xField = "X_Coord"
+yField = "Y_Coord"
+outAvyPointClass = (AvyDataWorkspace + "\\AvyPointClass.shp")
+projectedAvyOutPointClass = (AvyDataWorkspace + "\\AvyPointClass_projected.shp")
+avyPointClipped = (gdbName + "\\AvyPointClass_ClippedFinal")
+print("avy parameters established")
+
+# establish output parameters
+AvyhrrrPointOutput = (gdbName + "\\testAvyHRRRsubsetPointclass")
+avyWeatherModelData = (gdbName + "\\avyPointWeatherModelData")
+print("output data parameters established")
+
