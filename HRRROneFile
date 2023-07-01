@@ -1,0 +1,16 @@
+# create a subset for one of the multidimensional raster layers
+try:
+    arcpy.SubsetMultidimensionalRaster_md((Jan2022HRRRWorkspace + "\\hrrr.t00z.wrfsfcf24V1.grib2"),
+                                          (outVariablesJan2022HRRR + "\\hrrr.t00z.wrfsfcf24V1_variables.grib2"),
+                                          hrrrModelVariables)
+    print("subset created")
+
+    # sample point data to subset
+    Sample((outVariablesJan2022HRRR + "\\hrrr.t00z.wrfsfcf24V1_variables.grib2"), masterAvyPointClass,
+           testAvyhrrrPointOutput, "NEAREST", "FID", "ALL_SLICES", "", "", "", "", "ROW_WISE", "FEATURE_CLASS")
+    print("sample created")
+
+    arcpy.Merge_management([masterAvyPointClass, testAvyhrrrPointOutput], avyWeatherModelData)
+
+except Exception as ex:
+    print(ex)
