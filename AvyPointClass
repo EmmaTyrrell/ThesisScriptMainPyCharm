@@ -1,45 +1,4 @@
-# script to map avalanches from CAIC data
 
-# import directories
-import arcpy
-print("imported modules")
-
-# establish parameters
-# set master workspace and overwrite conditions
-arcpy.env.workspace = "C:\\Users\\Emma Tyrrell\\Documents\\PSU_SDS\\THESIS_230226"
-projectBoundary = (arcpy.env.workspace + "\\Data\\StaticDataGDB.gdb\\ProjectBoundary")
-gdbName = (arcpy.env.workspace + "\\Data\\StaticDataGDB.gdb")
-mosaicBit = 1
-mosaicPixelType = "32_BIT_FLOAT"
-GCSsr = arcpy.SpatialReference(4326)
-PCSsr = arcpy.SpatialReference(6432)
-arcpy.env.overwriteOutput = True
-arcpy.env.qualifiedFieldNames = False
-finalAvyPointClass = (gdbName + "\\finalAvyPointClassRasterData")
-print("master parameters established")
-
-# set terrain data workspace
-terrainDataFilesWorkspace = (arcpy.env.workspace + "\\Data\\TerrainData")
-slopeOutputFiles = (terrainDataFilesWorkspace + "\\SlopeOutputFiles")
-aspectOutputFiles = (terrainDataFilesWorkspace + "\\AspectOutputFiles")
-demFiles = (arcpy.env.workspace + "\\Data\\DEM")
-mosaicAspectName = "aspectMosaic"
-mosaicSlopeName = "slopeMosaic"
-print("terrain parameters established")
-
-# set avy data workspace
-AvyDataWorkspace = (arcpy.env.workspace + "\\Data\\AvyData")
-AvyTable = (AvyDataWorkspace + "\\2022\\CAICAvyExplorer_Jan22.csv")
-xField = "X_Coord"
-yField = "Y_Coord"
-outAvyPointClass = (AvyDataWorkspace + "\\AvyPointClass.shp")
-projectedAvyOutPointClass = (AvyDataWorkspace + "\\AvyPointClass_projected.shp")
-avyPointClipped = (gdbName + "\\AvyPointClass_ClippedFinal")
-print("avy parameters established")
-
-# export data workspace
-testSlopeAspectAvyPointOutput = (gdbName + "\\testAvySlopeAspectPointclass")
-print("output data parameters established")
 
 # # create feature point class for avalanche data that's consistent with HRRR model data
 try:
