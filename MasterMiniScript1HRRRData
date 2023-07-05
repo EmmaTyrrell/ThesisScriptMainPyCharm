@@ -1,0 +1,230 @@
+# script to map avalanches from CAIC data
+
+# import directories
+import arcpy
+from arcpy.sa import *
+import os
+from arcpy import env
+from arcpy.ia import *
+print("imported modules")
+
+# establish parameters
+# set master workspace and overwrite conditions
+arcpy.env.workspace = "C:\\Users\\Emma Tyrrell\\Documents\\PSU_SDS\\THESIS_230226\\Data"
+gdbName = (arcpy.env.workspace + "\\StaticDataGDB.gdb")
+projectBoundary = (gdbName + "\\ProjectBoundary")
+outputData = (arcpy.env.workspace + "\\OutputData")
+mosaicBit = 1
+mosaicPixelType = "32_BIT_FLOAT"
+GCSsr = arcpy.SpatialReference(4326)
+PCSsr = arcpy.SpatialReference(6431)
+arcpy.env.overwriteOutput = True
+arcpy.env.qualifiedFieldNames = False
+print("master parameters established")
+
+# set avy data workspace
+AvyDataWorkspace = (arcpy.env.workspace + "\\AvyData")
+AvyTable = (AvyDataWorkspace + "\\2022\\CAICAvyExplorer_Jan22.csv")
+xField = "X_Coord"
+yField = "Y_Coord"
+outAvyPointClass = (outputData + "\\AvyPointClass.shp")
+projectedAvyOutPointClass = (outputData + "\\AvyPointClass_projected.shp")
+print("avy parameters established")
+
+# set terrain data workspace
+terrainDataFilesWorkspace = (arcpy.env.workspace + "\\Data\\TerrainData")
+demFiles = (arcpy.env.workspace + "\\Data\\DEM")
+demMosaic = "demMosaic"
+print("terrain parameters established")
+
+# hrrr model parameters
+hrrrDataWorkspace = (arcpy.env.workspace + "\\HRRR")
+hrrrMosaic = "HRRRWeatherModels"
+hrrrCRFmosaic = "HRRRWeatherModelsCRF"
+hrrrFiles = (hrrrDataWorkspace + "\\Files_Test")
+outHRRRdata = (arcpy.env.workspace + "\\OutputData")
+hrrrModelVariables = ["ASNOW@SFC", "CSNOW@SFC", "GUST@SFC", "PRATE@SFC", "SFCR@SFC", "SNOD@SFC", "SNOWC@SFC",
+                      "TCDC@BCY", "TCDC@EATM", "TMP@SFC", "VEG@SFC", "WIND@HTGL"]
+meanHRRRVariables = ["GUST@SFC", "PRATE@SFC", "SFCR@SFC", "SNOD@SFC", "SNOWC@SFC", "TCDC@BCY", "TCDC@EATM", "TMP@SFC",
+                     "VEG@SFC", "WIND@HTGL"]
+minnHRRRVariables = ["GUST@SFC", "TMP@SFC", "WIND@HTGL"]
+maxHRRRVariables = ["GUST@SFC", "TMP@SFC", "WIND@HTGL"]
+sumHRRRVariables = ["ASNOW@SFC", "CSNOW@SFC"]
+testHRRRFile = (hrrrFiles + "\\hrrr.t00z.wrfsfcf24_9.grib2")
+crfHRRRall = (arcpy.env.workspace + "\\OutputData\\testCRFHRRR_all.crf")
+crfTranspose = (arcpy.env.workspace + "\\OutputData\\testCRFHRRR_transpose.crf")
+crfTestMeanFile = (outputData + "\\mastercrfHRRRModelfile_mean.crf")
+crfTestMinFile = (outputData + "\\mastercrfHRRRModelfile_min.crf")
+crfTestMaxFile = (outputData + "\\mastercrfHRRRModelfile_max.crf")
+crfTestSumFile = (outputData + "\\mastercrfHRRRModelfile_sum.crf")
+crfTestMasterClipped = (gdbName + "\\mastercrfHRRRModelfile_clipped")
+arcpy.CheckOutExtension("ImageAnalyst")
+print("hrrr model parameters established")
+
+# establish output parameters
+AvySampleHRRRSumOutput = (gdbName + "\\AvyHRRRPointclass_sum")
+AvySampleHRRRMeanOutput = (gdbName + "\\AvyHRRRPointclass_mean")
+AvySampleHRRRMinOutput = (gdbName + "\\AvyHRRRPointclass_min")
+AvySampleHRRRMaxOutput = (gdbName + "\\AvyHRRRPointclass_max")
+AvySampleTerrainOutput = (gdbName + "\\AvyTerrainPointclass")
+aspect = (gdbName + "\\aspectMaster")
+slope = (gdbName + "\\slopeMaster")
+avyPointClipped = (gdbName + "\\MasterAvyPointClass")
+masterAvyPointClass = (gdbName + "\\MasterAvyPointClass")
+avySampleData = (gdbName + "\\avyPointWeatherModelData")
+print("output data parameters established")
+
+# create feature point class for avalanche data that's consistent with HRRR model data
+try:
+    # run tool for XY class
+    arcpy.XYTableToPoint_management(AvyTable, outAvyPointClass, xField, yField, "", GCSsr)
+    print("point class created")
+
+    # project class into proper coordinate system
+    arcpy.Project_management(outAvyPointClass, projectedAvyOutPointClass, PCSsr)
+    print("coordinate system projected")
+
+    # add field for StdDate
+    arcpy.AddField_management(projectedAvyOutPointClass, "StdDate", "TEXT", "", "", 11, "", "NULLABLE", "REQUIRED")
+    print("field added")
+
+    # calculate field
+    dateExpression = '"!Month!" + "/" + "!Day!" + "/" + "!Year!"'
+    arcpy.CalculateField_management(projectedAvyOutPointClass, "StdDate", dateExpression, "PYTHON3")
+
+    # clip and delete features
+    try:
+        # clip avy features
+        arcpy.Clip_analysis(projectedAvyOutPointClass, projectBoundary, avyPointClipped)
+        print("clipped avy feature")
+
+    except Exception as ex:
+        print(ex)
+except Exception as ex:
+    print(ex)
+
+# hrrr model test
+try:
+    # prepping files for agg
+    try:
+        # copy raster tool
+        arcpy.CopyRaster_management(testHRRRFile, crfHRRRall, "", "", "", "", "", "", "", "", "CRF")
+        print("raster copied")
+
+        # build multidimensional transpose
+        arcpy.BuildMultidimensionalTranspose_md(crfHRRRall)
+        print("transpose created")
+
+        # create subset
+        arcpy.SubsetMultidimensionalRaster_md(crfHRRRall, crfTranspose, hrrrModelVariables)
+        print("subset created")
+
+    except Exception as ex:
+        print(ex)
+
+    # aggregate files
+    try:
+        # aggregate mean files
+        aggMean = arcpy.ia.AggregateMultidimensionalRaster(crfTranspose, "StdTime", "MEAN", meanHRRRVariables,
+                                                           "INTERVAL_KEYWORD", "DAILY")
+        aggMean.save(crfTestMeanFile)
+        print("mean variables aggregated")
+
+        # aggregate min files
+        aggMin = arcpy.ia.AggregateMultidimensionalRaster(crfTranspose, "StdTime", "MINIMUM", minnHRRRVariables,
+                                                          "INTERVAL_KEYWORD", "DAILY")
+        aggMin.save(crfTestMinFile)
+        print("min variables aggregated")
+
+        # aggregate max files
+        aggMax = arcpy.ia.AggregateMultidimensionalRaster(crfTranspose, "StdTime", "MAXIMUM", maxHRRRVariables,
+                                                          "INTERVAL_KEYWORD", "DAILY")
+        aggMax.save(crfTestMaxFile)
+        print("max variables aggregated")
+
+        # aggregate sum files
+        aggSum = arcpy.ia.AggregateMultidimensionalRaster(crfTranspose, "StdTime", "SUM", sumHRRRVariables,
+                                                          "INTERVAL_KEYWORD", "DAILY")
+        aggSum.save(crfTestSumFile)
+        print("sum variables aggregated")
+    except Exception as ex:
+        print(ex)
+
+except Exception as ex:
+    print(ex)
+
+# sample and merge hrrr and terrain test
+try:
+    # sample HRRR model data
+    try:
+        # sample mean hrrr model
+        Sample(crfTestMeanFile, masterAvyPointClass, AvySampleHRRRMeanOutput, "NEAREST", "OBJECTID", "ALL_SLICES", "",
+               "", "", "", "ROW_WISE", "FEATURE_CLASS")
+        print("sampled mean of all")
+        meanFields = arcpy.ListFields(AvySampleHRRRMeanOutput)
+        for field in meanFields:
+            if field.name != ["OBJECTID", "SHAPE", "LOCATIONID", "X", "Y", "StdTime", "Dimensions"]:
+                arcpy.AlterField_management(AvySampleHRRRMeanOutput, field.name, (field.name + "_mean"),
+                                            (field.name + "_mean"))
+
+        # sample min hrrr model
+        Sample(crfTestMinFile, masterAvyPointClass, AvySampleHRRRMinOutput, "NEAREST", "OBJECTID", "ALL_SLICES", "", "",
+               "", "", "ROW_WISE", "FEATURE_CLASS")
+        print("sampled min of all")
+        minFields = arcpy.ListFields(AvySampleHRRRMinOutput)
+        for field in minFields:
+            if field.name != ["OBJECTID", "SHAPE", "LOCATIONID", "X", "Y", "StdTime", "Dimensions"]:
+                arcpy.AlterField_management(AvySampleHRRRMinOutput, field.name, (field.name + "_min"),
+                                            (field.name + "_min"))
+
+        # sample max hrrr model
+        Sample(crfTestMaxFile, masterAvyPointClass, AvySampleHRRRMaxOutput, "NEAREST", "OBJECTID", "ALL_SLICES", "", "",
+               "", "", "ROW_WISE", "FEATURE_CLASS")
+        print("sampled max of all")
+        maxFields = arcpy.ListFields(AvySampleHRRRMaxOutput)
+        for field in maxFields:
+            if field.name != ["OBJECTID", "SHAPE", "LOCATIONID", "X", "Y", "StdTime", "Dimensions"]:
+                arcpy.AlterField_management(AvySampleHRRRMaxOutput, field.name, (field.name + "_max"),
+                                            (field.name + "_max"))
+
+        # sample sum hrrr model
+        Sample(crfTestSumFile, masterAvyPointClass, AvySampleHRRRSumOutput, "NEAREST", "OBJECTID", "ALL_SLICES", "", "",
+               "", "", "ROW_WISE", "FEATURE_CLASS")
+        print("sampled sum of all")
+        sumFields = arcpy.ListFields(AvySampleHRRRSumOutput)
+        for field in sumFields:
+            if field.name != ["OBJECTID", "SHAPE", "LOCATIONID", "X", "Y", "StdTime", "Dimensions"]:
+                arcpy.AlterField_management(AvySampleHRRRSumOutput, field.name, (field.name + "_sum"),
+                                            (field.name + "_sum"))
+
+    except Exception as ex:
+        print(ex)
+
+    # sample terrain and rename files
+    try:
+        Sample([slope, aspect], masterAvyPointClass, AvySampleTerrainOutput, "NEAREST", "OBJECTID", "ALL_SLICES", "",
+               "", "", "", "ROW_WISE", "FEATURE_CLASS")
+        print("sampled")
+
+        # rename slope and aspect
+        arcpy.AlterField_management(AvySampleTerrainOutput, "v_raster_10", "Slope", "Slope")
+        print("slope field renamed")
+
+        arcpy.AlterField_management(AvySampleTerrainOutput, "v_raster_20", "Aspect", "Aspect")
+        print("aspect field renamed")
+    except Exception as ex:
+        print(ex)
+
+    # delete other data
+    try:
+        arcpy.Delete_management([crfTranspose, crfHRRRall, crfTestMeanFile, crfTestMinFile, crfTestMaxFile,
+                                 crfTestSumFile, outAvyPointClass, projectedAvyOutPointClass])
+        print("crf unused classes classes deleted")
+
+    except Exception as ex:
+        print(ex)
+
+except Exception as ex:
+    print(ex)
+
+print("Check work")
